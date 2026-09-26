@@ -1,135 +1,393 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>関ヶ谷自治会 公式LINE 利用登録・更新</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 15px; background-color: #f4f7f6; }
-        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
-        h2 { font-size: 18px; color: #1DB446; margin-bottom: 15px; border-left: 4px solid #1DB446; padding-left: 10px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #555; }
-        .required { color: #e53935; font-size: 11px; margin-left: 5px; vertical-align: middle; border: 1px solid #e53935; padding: 1px 4px; border-radius: 3px; }
-        .name-flex { display: flex; gap: 10px; }
-        input[type="text"], input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; background-color: white; }
-        .hint { font-size: 11px; color: #888; margin-top: 4px; line-height: 1.4; }
-        .option-list { border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fafafa; }
-        .option { display: flex; align-items: center; padding: 8px 0; cursor: pointer; border-bottom: 1px solid #eee; transition: opacity 0.2s; }
-        .option.dimmed { opacity: 0.4; }
-        input[type="checkbox"] { width: 20px; height: 20px; margin-right: 10px; accent-color: #1DB446; }
-        .btn { display: block; width: 100%; padding: 15px; background: #1DB446; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin-top: 20px; cursor: pointer; text-align: center; }
-        .btn-sub { background: #666; margin-top: 10px; font-size: 14px; padding: 10px; }
-        
-        /* 確認画面(View Mode)のスタイル */
-        #view-mode { background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
-        .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 15px; }
-        .info-row:last-child { border-bottom: none; }
-        .info-label { color: #888; }
-        .info-value { font-weight: bold; color: #333; }
+        /*
+         * 高齢の方向けの見た目（docs/proposal_liff_form_abc_2026-09-24.md 3-7〜3-12）
+         * - 文字は大きく（見出し20px・入力欄20〜22px・補足15px以上）、グレーは濃いめ #444
+         * - 入力欄は白地に濃い太枠 2px #333、高さ56px。入力中は黄色の太い外枠
+         * - 注意は項目の左に赤線、欄は赤枠、文は項目名の下。画面の一番上に一覧
+         * - ボタン・番号の丸は濃い緑 #00703C（LINEの緑は白地とのコントラストが足りない）
+         */
+        body { margin: 0; padding: 10px; font-family: -apple-system, "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif; background: #f4f7f6; color: #111; line-height: 1.6; }
+        [hidden] { display: none !important; }
+        .container { background: #fff; padding: 18px 16px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
+        h1 { font-size: 24px; line-height: 1.3; color: #111; margin: 0 0 12px; border-left: 5px solid #00703C; padding-left: 12px; }
+        .welcome { font-size: 16px; color: #444; margin: 0 0 8px; }
+        .welcome b { color: #111; }
 
-        /* ローディングアニメーション */
+        /* 項目の区切り: 番号・線・ゆとり（枠で囲まない） */
+        .q { margin: 0; padding: 28px 0; border: none; min-width: 0; }
+        .q + .q { border-top: 1px solid #b1b4b6; }
+        #fg-dairi { border-bottom: 1px solid #b1b4b6; margin-bottom: 24px; }
+        .lbl { display: flex; align-items: flex-start; gap: 10px; font-size: 20px; font-weight: bold; line-height: 1.4; color: #111; margin-bottom: 10px; padding: 0; }
+        .qno { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #00703C; color: #fff; font-size: 18px; font-weight: bold; line-height: 1; }
+        /* fieldset の見出し（legend）が上の線を隠さないよう、線の下に置く */
+        fieldset.q > legend { float: left; width: 100%; }
+        fieldset.q > legend + * { clear: both; }
+
+        /* 見本・案内 */
+        .guide { margin: 0 0 4px; font-size: 16px; color: #333; }
+        .guide.small { font-size: 15px; color: #444; line-height: 1.6; margin: 10px 0; }
+        .guide.why { font-size: 16px; color: #444; line-height: 1.7; margin: 0 0 10px; }
+        .guide.why b { color: #111; }
+        .example { margin: 0 0 12px; font-size: 18px; color: #444; letter-spacing: .02em; }
+        .ex-mark { display: inline-block; font-size: 13px; font-weight: bold; color: #fff; background: #5a615e; border-radius: 3px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
+
+        /* 入力欄 */
+        .nf { display: flex; gap: 10px; }
+        .sub-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+        .sub-field label, .hk-item label { font-size: 17px; font-weight: bold; color: #333; }
+        input[type="text"] { width: 100%; box-sizing: border-box; min-height: 56px; padding: 10px 12px; font-size: 20px; color: #111; background: #fff; border: 2px solid #333; border-radius: 6px; }
+        input[type="text"]:focus { outline: 4px solid #FFDD00; outline-offset: 0; box-shadow: inset 0 0 0 2px #333; }
+        input[type="text"].is-error { border: 3px solid #D4351C; }
+        input[type="text"].is-error:focus { box-shadow: none; }
+        .hk { display: flex; align-items: flex-end; gap: 16px; }
+        .hk-item { display: flex; flex-direction: column; gap: 4px; }
+        .hk-item input[type="text"] { width: 96px; font-size: 22px; text-align: center; }
+
+        /* 年代: 縦に並べた丸（1つだけ選ぶ） */
+        .rad { display: flex; align-items: center; gap: 14px; min-height: 52px; font-size: 19px; color: #111; cursor: pointer; }
+        .rad input[type="radio"] { -webkit-appearance: none; appearance: none; flex: none; width: 34px; height: 34px; margin: 0; border: 2px solid #333; border-radius: 50%; background: #fff; cursor: pointer; }
+        .rad input[type="radio"]:checked { background: radial-gradient(circle, #111 0 9px, #fff 10px); }
+        .rad input[type="radio"]:focus-visible { outline: 4px solid #FFDD00; outline-offset: 2px; }
+
+        /* 代理のチェック: 行全体を押せる白いカード、28px の四角 */
+        .op { display: flex; align-items: center; min-height: 56px; box-sizing: border-box; padding: 12px 14px; font-size: 18px; line-height: 1.4; border: 2px solid #333; border-radius: 8px; background: #fff; cursor: pointer; }
+        .op:has(input:checked) { background: #eef9f1; border-color: #138a34; }
+        .op input[type="checkbox"] { -webkit-appearance: none; appearance: none; flex: none; width: 28px; height: 28px; margin: 0 12px 0 0; border: 2px solid #333; border-radius: 4px; background: #fff; cursor: pointer; }
+        .op input[type="checkbox"]:checked { background: #1DB446 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/22px no-repeat; border-color: #138a34; }
+        .op input[type="checkbox"]:focus-visible { outline: 4px solid #FFDD00; outline-offset: 2px; }
+        /* チェックすると出る「何班の代わりですか」。左の灰色の線でチェックの続きと示す */
+        .reveal { border-left: 5px solid #6f777b; margin: 4px 0 8px 15px; padding: 8px 0 8px 20px; }
+        .reveal label { display: block; font-size: 17px; font-weight: bold; color: #333; margin-bottom: 6px; }
+        .reveal input[type="text"] { width: 120px; font-size: 22px; text-align: center; }
+
+        /* 注意: 画面の一番上の一覧と、項目ごとの表示 */
+        .err-summary { border: 5px solid #D4351C; padding: 14px 16px; margin: 16px 0 8px; background: #fff; }
+        /* 注意の一覧には、読み上げのためにプログラムでフォーカスを移すだけ。
+           黄色の枠は「入力中の欄」の印なので、ここには付けない（赤枠と二重に見えて紛らわしい） */
+        .err-summary:focus { outline: none; }
+        .err-summary h2 { margin: 0 0 8px; font-size: 20px; color: #111; }
+        .err-summary ul { margin: 0; padding-left: 1.2em; }
+        .err-summary li { font-size: 17px; line-height: 1.6; margin: 4px 0; }
+        .err-summary a { color: #B3261E; font-weight: bold; text-decoration: underline; cursor: pointer; }
+        .q.has-error { border-left: 5px solid #D4351C; padding-left: 12px; margin-left: -17px; }
+        .field-error { margin: 0 0 10px; font-size: 16px; font-weight: bold; color: #B3261E; line-height: 1.6; white-space: pre-line; }
+        .msg { border-radius: 8px; padding: 12px 14px; font-size: 16px; font-weight: bold; line-height: 1.6; margin: 0 0 14px; white-space: pre-line; }
+        .msg.err { background: #fdecec; color: #b3261e; border: 1px solid #f1bcb8; }
+
+        /* ボタン（GOV.UK: 濃い緑、下に濃い影で「押せる」形。送信中も押せない見た目にはしない） */
+        .btn { display: block; width: 100%; padding: 18px; font-size: 20px; font-weight: bold; color: #fff; background: #00703C; border: none; border-radius: 10px; box-shadow: 0 3px 0 #002d18; cursor: pointer; text-align: center; }
+        .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #002d18; }
+        .btn:focus-visible { outline: 4px solid #FFDD00; outline-offset: 2px; }
+        .btn[aria-busy="true"] { cursor: progress; }
+        .btn-sub { color: #111; background: #f3f2f1; box-shadow: 0 3px 0 #929191; margin-top: 16px; font-size: 18px; padding: 16px; }
+        .btn-sub:active { box-shadow: 0 1px 0 #929191; }
+
+        /* 登録済みの人の確認画面 */
+        #view-mode { margin: 12px 0 8px; }
+        .info-row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #b1b4b6; font-size: 18px; }
+        .info-label { color: #444; flex: none; }
+        .info-value { font-weight: bold; color: #111; text-align: right; }
+
+        /* 読み込み中 */
         #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #1DB446; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #00703C; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <p style="margin-top: 15px; color: #666; font-size: 14px;">読み込み中...</p>
+        <p style="margin-top: 15px; color: #444; font-size: 16px;">読み込み中...</p>
     </div>
 
     <div class="container">
-        <h2 id="main-title">マイページ（登録情報の確認・修正）</h2>
-        <p id="welcome-msg" style="font-size: 14px; color: #666; margin-bottom: 20px;">読込中...</p>
+        <h1 id="main-title">利用登録</h1>
+        <p class="welcome" id="welcome-msg"></p>
 
-        <div id="view-mode" style="display: none;">
+        <!-- 登録済みの人の確認画面 -->
+        <div id="view-mode" hidden>
             <div class="info-row"><span class="info-label">氏名</span><span class="info-value" id="view-name"></span></div>
             <div class="info-row"><span class="info-label">班-戸番</span><span class="info-value" id="view-address"></span></div>
             <div class="info-row"><span class="info-label">年代</span><span class="info-value" id="view-age"></span></div>
-            <div class="info-row"><span class="info-label">役職</span><span class="info-value" id="view-roles"></span></div>
+            <div class="info-row" id="view-dairi-row" hidden><span class="info-label">班長の代理</span><span class="info-value" id="view-dairi"></span></div>
             <button type="button" class="btn btn-sub" onclick="switchToEditMode()">情報を修正・変更する</button>
         </div>
 
-        <div id="input-form" style="display: none;">
-            <div class="form-group">
-                <label>お名前<span class="required">必須</span></label>
-                <div class="name-flex">
-                    <input type="text" id="lastName" placeholder="姓">
-                    <input type="text" id="firstName" placeholder="名">
+        <!-- 入力フォーム -->
+        <div id="input-form" hidden>
+            <div class="err-summary" id="err-summary" role="alert" tabindex="-1" hidden>
+                <h2>入力内容を確認してください</h2>
+                <ul id="err-list"></ul>
+            </div>
+
+            <div class="q" id="fg-name">
+                <span class="lbl"><span class="qno" aria-hidden="true">1</span>お名前</span>
+                <p class="guide">漢字でご入力ください</p>
+                <p class="example"><span class="ex-mark">例）</span>山田　花子</p>
+                <div id="name-msg"></div>
+                <div class="nf">
+                    <div class="sub-field"><label for="lastName">姓</label><input type="text" id="lastName" autocomplete="family-name"></div>
+                    <div class="sub-field"><label for="firstName">名</label><input type="text" id="firstName" autocomplete="given-name"></div>
                 </div>
             </div>
-            <div class="form-group">
-                <label>班番号（1〜101）<span class="required">必須</span></label>
-                <input type="number" id="hanBan" placeholder="数字で入力" min="1" max="101" inputmode="numeric">
-            </div>
-            <div class="form-group">
-                <label>戸番（1〜19）<span class="required">必須</span></label>
-                <input type="number" id="koban" placeholder="数字で入力" min="1" max="19" inputmode="numeric">
-            </div>
-            <div class="form-group">
-                <label>年代</label>
-                <select id="ageGeneration">
-                    <option value="">選択してください</option>
-                    <option value="10代以下">10代以下</option><option value="20代">20代</option><option value="30代">30代</option>
-                    <option value="40代">40代</option><option value="50代">50代</option><option value="60代">60代</option>
-                    <option value="70代">70代</option><option value="80代以上">80代以上</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>該当する役職</label>
-                <div class="option-list">
-                    <label class="option"><input type="checkbox" name="role" value="一般" id="role-general" checked onchange="handleRoleChange(this)"> 一般（役職なし）</label>
-                    <label class="option dimmed"><input type="checkbox" name="role" value="2026後期 - 地区長" onchange="handleRoleChange(this)"> 2026後期 - 地区長</label>
-                    <label class="option dimmed"><input type="checkbox" name="role" value="2026後期 - 班長" onchange="handleRoleChange(this)"> 2026後期 - 班長</label>
-                    <label class="option dimmed"><input type="checkbox" name="role" value="2026後期 - 班長（代理）" onchange="handleRoleChange(this)"> 2026後期 - 班長（代理）</label>
-                    <label class="option dimmed"><input type="checkbox" name="role" value="防災部" onchange="handleRoleChange(this)"> 防災部</label>
-                    <label class="option dimmed"><input type="checkbox" name="role" value="その他役員" onchange="handleRoleChange(this)"> その他役員</label>
+
+            <div class="q" id="fg-hk">
+                <span class="lbl"><span class="qno" aria-hidden="true">2</span>班番号・戸番</span>
+                <p class="example"><span class="ex-mark">例）</span>12班の7番 なら、12 と 7</p>
+                <p class="guide small">わからないときは、班長さんにお聞きいただくか、トーク画面からメッセージでお問い合わせください。</p>
+                <div id="hk-msg"></div>
+                <div class="hk">
+                    <div class="hk-item"><label for="hanBan">班</label><input type="text" id="hanBan" inputmode="numeric" pattern="[0-9]*" spellcheck="false" autocomplete="off"></div>
+                    <div class="hk-item"><label for="koban">戸番</label><input type="text" id="koban" inputmode="numeric" pattern="[0-9]*" spellcheck="false" autocomplete="off"></div>
                 </div>
             </div>
-            <button class="btn" id="submitBtn" onclick="submitForm()">この内容で登録する</button>
+
+            <fieldset class="q" id="fg-age">
+                <legend class="lbl"><span class="qno" aria-hidden="true">3</span>年代（任意）</legend>
+                <p class="guide why">災害のときに「高齢者等避難」などの情報を、必要な方にお届けするために使います。また、皆さまに合ったお知らせにするためにも使います。<b>できるだけお答えください。</b></p>
+                <p class="guide small" id="saved-age-note" hidden style="margin: 0 0 10px;"></p>
+                <label class="rad"><input type="radio" name="age" value="10代以下">10代以下</label>
+                <label class="rad"><input type="radio" name="age" value="20代">20代</label>
+                <label class="rad"><input type="radio" name="age" value="30代">30代</label>
+                <label class="rad"><input type="radio" name="age" value="40代">40代</label>
+                <label class="rad"><input type="radio" name="age" value="50代">50代</label>
+                <label class="rad"><input type="radio" name="age" value="60代">60代</label>
+                <label class="rad"><input type="radio" name="age" value="70代">70代</label>
+                <label class="rad"><input type="radio" name="age" value="80代">80代</label>
+                <label class="rad"><input type="radio" name="age" value="90代以上">90代以上</label>
+                <label class="rad"><input type="radio" name="age" value="">答えない</label>
+            </fieldset>
+
+            <div class="q" id="fg-dairi">
+                <span class="lbl"><span class="qno" aria-hidden="true">4</span>班長の代理（任意）</span>
+                <p class="guide small" style="margin: 0 0 10px;">班長さんがLINEを使っていないときに、代わりに受け取る方だけチェックしてください。</p>
+                <div id="dairi-msg"></div>
+                <label class="op"><input type="checkbox" id="isProxy">班長の代わりにLINEで受け取る</label>
+                <div class="reveal" id="proxy-han-box" hidden>
+                    <label for="proxyHan">何班の代わりですか</label>
+                    <p class="guide small" style="margin: 0 0 8px;">ご自宅の班を入れています。ちがう班の代わりなら、書き直してください。</p>
+                    <input type="text" id="proxyHan" inputmode="numeric" pattern="[0-9]*" spellcheck="false" autocomplete="off">
+                </div>
+            </div>
+
+            <div id="msg"></div>
+            <button type="button" class="btn" id="submitBtn" onclick="submitForm()">この内容で登録する</button>
         </div>
 
-        <div id="success-message" style="display: none; text-align: center;">
-            <h3 style="color: #1DB446;">完了</h3>
-            <p>お手続きありがとうございました。</p>
-            <button class="btn" onclick="liff.closeWindow()">閉じる</button>
+        <!-- LINEの外で開いたときの完了画面 -->
+        <div id="success-message" hidden style="text-align: center;">
+            <h2 style="font-size: 22px;">完了</h2>
+            <p style="font-size: 18px;">お手続きありがとうございました。</p>
+            <button type="button" class="btn" onclick="liff.closeWindow()">閉じる</button>
         </div>
     </div>
 
 <script>
     // ==========================================
-    // 1. 【設定値】ここを最新のものに貼り替えてください
+    // 設定値
     // ==========================================
+    // 送信先は旧デプロイ（AKfycbzE41Wr…）。GASを直したら、このデプロイも新しい版に更新すること
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzE41Wr8fbNJjqopnY2ldKxJJ5LELQNNYw09J6wYeRG5oDGe9LPqNPolOvZ4kkYZoW8/exec";
     const LIFF_ID = "2009265243-QfQURcn1";
-    let isLiffInitialized = false;
-    let isExistingUser = false;
+    // GAS に「新しいフォームから送った」と伝える番号。2 以上のとき GAS が班-戸番を確かめる
+    const FORM_VERSION = 2;
+
+    const HAN_MAX = 101;
+    const KOBAN_MAX = 19;
+    const KANA_WARNING = '姓がひらがな（またはカタカナ）になっています。できれば漢字で入力してください。\nひらがな・カタカナのお名前の方は、そのままもう一度［この内容で登録する］を押してください。';
+    const SEND_FAILED = '送信できませんでした。電波のよい場所で、もう一度［この内容で登録する］を押してください。';
+
+    let profile = null;         // LINEのプロフィール（読み込み時に1回だけ取る）
+    let isExistingUser = false; // 登録済みの人か（メッセージの【新規登録】/【情報更新】の切替）
+    let savedAge = "";          // 登録済みの年代。「80代以上」など今の選択肢に無い値を、選び直さなければそのまま送る
+    let nameWarned = false;     // 姓のかなの注意を1回出したか（2回目はそのまま送る）
+    let houseWarned = false;    // 班-戸番が見つからない注意を1回出したか（2回目は確かめずに送る）
+    let proxyHanEdited = false; // 代理の班を本人が書き直したか（書き直したら自宅の班で上書きしない）
+    let sending = false;        // 送信中は2回目の押しを受け付けない
+
+    const $ = id => document.getElementById(id);
+
+    // ==========================================
+    // 入力の読み取り
+    // ==========================================
 
     /**
-     * デバイス情報を取得する
-     * LIFF SDKの getOS() と navigator.userAgent を組み合わせて環境情報を生成
-     * @returns {string} デバイス情報（例: "ios / Mozilla/5.0 ..."）
+     * 全角数字を半角にし、空白を除く（「１２」→「12」）
+     * @param {string} s
+     * @returns {string}
      */
-    function getDeviceInfo() {
-        try {
-            const os = liff.getOS() || "unknown";
-            const ua = navigator.userAgent || "";
-            return `${os} / ${ua}`.substring(0, 200);
-        } catch (e) {
-            return navigator.userAgent ? navigator.userAgent.substring(0, 200) : "取得失敗";
+    function toHalfDigits(s) {
+        return String(s || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[\s　]/g, '');
+    }
+
+    /**
+     * 1〜max の整数なら数値、そうでなければ null
+     * @param {string} s
+     * @param {number} max
+     * @returns {number|null}
+     */
+    function parseRange(s, max) {
+        const t = toHalfDigits(s);
+        if (!/^[0-9]+$/.test(t)) return null;
+        const n = Number(t);
+        return n >= 1 && n <= max ? n : null;
+    }
+
+    /**
+     * 姓が「ひらがな・カタカナ・ローマ字だけ」かを判定する
+     * 空白（全角・半角）を除いてから判定し、漢字が1文字でも入っていれば false。
+     * 名（下の名前）は本名がかなの方が多いので判定しない。
+     * @param {string} name - 入力された姓
+     * @returns {boolean}
+     */
+    function isKanaOnlyName(name) {
+        const s = String(name || '').replace(/[\s　]/g, '');
+        if (!s) return false;
+        return /^[ぁ-ゖー゛゜ァ-ヺー・]+$/.test(s) || /^[A-Za-zＡ-Ｚａ-ｚ]+$/.test(s);
+    }
+
+    /** 班長の代理にチェックがあるか */
+    function isProxy() { return $('isProxy').checked; }
+
+    /**
+     * 送る年代。丸を選んでいればその値、選んでいなければ登録済みの値（新規なら空）
+     * @returns {string}
+     */
+    function selectedAge() {
+        const checked = document.querySelector('input[name="age"]:checked');
+        return checked ? checked.value : savedAge;
+    }
+
+    // ==========================================
+    // 注意の表示（GOV.UK: 画面の上に一覧、各項目は左に赤線・赤枠・項目名の下に文）
+    // ==========================================
+
+    /** 項目と、注意の文を入れる場所の対応 */
+    const GROUPS = { 'fg-name': 'name-msg', 'fg-hk': 'hk-msg', 'fg-dairi': 'dairi-msg' };
+
+    /**
+     * 1つの項目の注意を消す
+     * @param {string} fgId - 項目のID
+     */
+    function clearGroup(fgId) {
+        $(fgId).classList.remove('has-error');
+        $(fgId).querySelectorAll('.is-error').forEach(el => el.classList.remove('is-error'));
+        $(GROUPS[fgId]).innerHTML = '';
+    }
+
+    /** すべての注意と、上の一覧・送信失敗の表示を消す */
+    function clearAll() {
+        Object.keys(GROUPS).forEach(clearGroup);
+        $('err-summary').hidden = true;
+        $('err-list').innerHTML = '';
+        $('msg').innerHTML = '';
+    }
+
+    /**
+     * 注意を出す
+     * @param {Array<{fg: string, input: string, text: string}>} items - 項目ID・欄のID・注意の文
+     */
+    function showErrors(items) {
+        clearAll();
+        items.forEach(it => {
+            $(it.fg).classList.add('has-error');
+            if (it.input) $(it.input).classList.add('is-error');
+            const p = document.createElement('p');
+            p.className = 'field-error';
+            p.textContent = it.text;
+            $(GROUPS[it.fg]).appendChild(p);
+            // 上の一覧: 押すとその欄へ移る
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.textContent = it.text.split('\n')[0];
+            a.addEventListener('click', () => {
+                const el = $(it.input) || $(it.fg).querySelector('input');
+                el.focus();
+                el.scrollIntoView({ block: 'center' });
+            });
+            li.appendChild(a);
+            $('err-list').appendChild(li);
+        });
+        $('err-summary').hidden = false;
+        window.scrollTo(0, 0);
+        $('err-summary').focus();
+    }
+
+    /**
+     * ボタンの下に送信失敗の文を出す
+     * @param {string} text
+     */
+    function showSendError(text) {
+        $('msg').innerHTML = '';
+        const p = document.createElement('p');
+        p.className = 'msg err';
+        p.textContent = text;
+        $('msg').appendChild(p);
+    }
+
+    /**
+     * 送る前の確認。直さないと送れない注意だけを集める
+     * @returns {Array<{fg: string, input: string, text: string}>}
+     */
+    function validate() {
+        const errs = [];
+        if (!$('lastName').value.trim()) errs.push({ fg: 'fg-name', input: 'lastName', text: '姓を入力してください' });
+        if (!$('firstName').value.trim()) errs.push({ fg: 'fg-name', input: 'firstName', text: '名を入力してください' });
+        if (!toHalfDigits($('hanBan').value)) errs.push({ fg: 'fg-hk', input: 'hanBan', text: '班を入力してください' });
+        else if (parseRange($('hanBan').value, HAN_MAX) === null) errs.push({ fg: 'fg-hk', input: 'hanBan', text: `班は、1から${HAN_MAX}までの数字で入力してください` });
+        if (!toHalfDigits($('koban').value)) errs.push({ fg: 'fg-hk', input: 'koban', text: '戸番を入力してください' });
+        else if (parseRange($('koban').value, KOBAN_MAX) === null) errs.push({ fg: 'fg-hk', input: 'koban', text: `戸番は、1から${KOBAN_MAX}までの数字で入力してください` });
+        if (isProxy()) {
+            if (!toHalfDigits($('proxyHan').value)) errs.push({ fg: 'fg-dairi', input: 'proxyHan', text: '何班の代わりか入力してください' });
+            else if (parseRange($('proxyHan').value, HAN_MAX) === null) errs.push({ fg: 'fg-dairi', input: 'proxyHan', text: `何班の代わりかは、1から${HAN_MAX}までの数字で入力してください` });
+        }
+        return errs;
+    }
+
+    // ==========================================
+    // 代理: チェックすると「何班の代わりですか」を出し、自宅の班を最初から入れておく
+    // ==========================================
+
+    /** 代理の欄の表示を更新する。本人が書き直していなければ、自宅の班を入れる */
+    function refreshProxy() {
+        $('proxy-han-box').hidden = !isProxy();
+        if (isProxy() && !proxyHanEdited) {
+            $('proxyHan').value = parseRange($('hanBan').value, HAN_MAX) || '';
         }
     }
 
-    liff.init({ liffId: LIFF_ID }).then(async () => {
-        isLiffInitialized = true;
-        if (!liff.isLoggedIn()) { liff.login(); return; }
+    // 書き直したら、その項目の注意を消す
+    $('isProxy').addEventListener('change', () => { refreshProxy(); clearGroup('fg-dairi'); });
+    $('proxyHan').addEventListener('input', () => { proxyHanEdited = true; clearGroup('fg-dairi'); });
+    $('lastName').addEventListener('input', () => { nameWarned = false; clearGroup('fg-name'); });
+    $('firstName').addEventListener('input', () => clearGroup('fg-name'));
+    ['hanBan', 'koban'].forEach(id => $(id).addEventListener('input', () => {
+        houseWarned = false; // 班-戸番を書き直したら、また確かめる
+        clearGroup('fg-hk');
+        refreshProxy();
+    }));
+    // 数字の欄は、離れたときに全角数字を半角に直して見せる（「１２」→「12」）
+    ['hanBan', 'koban', 'proxyHan'].forEach(id => $(id).addEventListener('blur', () => {
+        $(id).value = toHalfDigits($(id).value);
+    }));
 
-        const profile = await liff.getProfile();
+    // ==========================================
+    // 読み込み
+    // ==========================================
+
+    liff.init({ liffId: LIFF_ID }).then(async () => {
+        if (!liff.isLoggedIn()) { liff.login(); return; }
+        profile = await liff.getProfile();
 
         try {
-            // 既存データの取得
+            // 登録済みかを確かめる
             const response = await fetch(GAS_URL, {
                 method: "POST",
                 body: JSON.stringify({ action: "get_user_info", userId: profile.userId })
@@ -138,152 +396,176 @@
 
             if (result.status === "success") {
                 isExistingUser = true;
-                const u = result.data;
-                document.getElementById('main-title').innerText = "マイページ（登録情報の確認・修正）";
-                // テキスト表示にセット
-                document.getElementById('view-name').innerText = `${u.lastName} ${u.firstName}`;
-                document.getElementById('view-address').innerText = `${u.han}班-${u.koban}番`;
-                document.getElementById('view-age').innerText = u.age || "未選択";
-                document.getElementById('view-roles').innerText = u.roles || "一般";
-                
-                // フォームの裏側にもセット
-                document.getElementById('lastName').value = u.lastName;
-                document.getElementById('firstName').value = u.firstName;
-                document.getElementById('hanBan').value = u.han;
-                document.getElementById('koban').value = u.koban;
-                document.getElementById('ageGeneration').value = u.age;
-                if (u.roles) {
-                    const roleArray = u.roles.split('/');
-                    document.querySelectorAll('input[name="role"]').forEach(cb => {
-                        cb.checked = roleArray.includes(cb.value);
-                    });
-                    handleRoleChange();
-                }
-                
-                document.getElementById('view-mode').style.display = 'block';
-                document.getElementById('welcome-msg').innerText = "ご登録済みの情報は以下の通りです。";
+                showViewMode(result.data);
             } else {
-                // ★ タイトルを「新規登録」に変更
-                document.getElementById('main-title').innerText = "初回利用登録";
-                
-                document.getElementById('input-form').style.display = 'block';
-                document.getElementById('welcome-msg').innerText = "必要事項を入力して、登録をお願いします。";
+                showNewForm();
             }
         } catch (e) {
-            document.getElementById('input-form').style.display = 'block';
+            showNewForm();
         } finally {
-            document.getElementById('loading-overlay').style.display = 'none';
+            $('loading-overlay').style.display = 'none';
         }
 
-        // 仮登録ログ（デバイス情報を含む）
-        fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "temp_register", userId: profile.userId, displayName: profile.displayName, deviceInfo: getDeviceInfo() }) });
-
+        // 仮登録（フォームを開いたことの記録。応答は使わない）
+        fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "temp_register", userId: profile.userId, displayName: profile.displayName }) });
     }).catch(err => console.error(err));
 
-    /**
-     * 役職チェックボックスの排他連動
-     * 「一般」とそれ以外の役職を排他的に制御する
-     * - 一般がONのとき → 他の役職はグレー表示だがクリック可能
-     * - 他の役職をひとつでもONにすると → 一般が自動OFF
-     * - 他の役職が全てOFFになると → 一般が自動ON
-     * @param {HTMLInputElement} [changed] - 変更されたチェックボックス要素
-     */
-    function handleRoleChange(changed) {
-        const generalCb = document.getElementById('role-general');
-        const otherCbs = Array.from(document.querySelectorAll('input[name="role"]:not(#role-general)'));
-        const anyOtherChecked = otherCbs.some(cb => cb.checked);
-
-        if (changed && changed.id === 'role-general') {
-            if (generalCb.checked) {
-                otherCbs.forEach(cb => { cb.checked = false; });
-            } else if (!anyOtherChecked) {
-                generalCb.checked = true;
-            }
-        } else {
-            if (anyOtherChecked) {
-                generalCb.checked = false;
-            } else {
-                generalCb.checked = true;
-            }
-        }
-
-        updateRoleDimming();
+    /** 初めての人: 入力フォームを出す */
+    function showNewForm() {
+        $('main-title').innerText = "初回利用登録";
+        $('welcome-msg').innerHTML = "全部で4つです。<b>3</b> と <b>4</b> は答えなくてもかまいません。";
+        $('input-form').hidden = false;
     }
 
     /**
-     * 役職チェックボックスのグレー表示を更新する
-     * 一般ON → 他をグレー表示、一般OFF → 一般をグレー表示
+     * 登録済みの人: 確認画面を出し、フォームの裏側にも今の値を入れておく
+     * @param {{lastName: string, firstName: string, han: number, koban: number, age: string, isProxy: boolean, proxyHan: (string|number)}} u
      */
-    function updateRoleDimming() {
-        const generalCb = document.getElementById('role-general');
-        const otherCbs = Array.from(document.querySelectorAll('input[name="role"]:not(#role-general)'));
-
-        if (generalCb.checked) {
-            generalCb.closest('.option').classList.remove('dimmed');
-            otherCbs.forEach(cb => cb.closest('.option').classList.add('dimmed'));
-        } else {
-            generalCb.closest('.option').classList.add('dimmed');
-            otherCbs.forEach(cb => cb.closest('.option').classList.remove('dimmed'));
+    function showViewMode(u) {
+        $('main-title').innerText = "マイページ";
+        $('welcome-msg').innerText = "ご登録済みの情報は以下の通りです。";
+        $('view-name').innerText = `${u.lastName} ${u.firstName}`;
+        $('view-address').innerText = `${u.han}班-${u.koban}番`;
+        $('view-age').innerText = u.age || "未選択";
+        if (u.isProxy) {
+            $('view-dairi').innerText = u.proxyHan ? `${u.proxyHan}班の代わり` : "はい";
+            $('view-dairi-row').hidden = false;
         }
+
+        $('lastName').value = u.lastName || '';
+        $('firstName').value = u.firstName || '';
+        $('hanBan').value = u.han || '';
+        $('koban').value = u.koban || '';
+        savedAge = u.age && u.age !== "未選択" ? u.age : "";
+        const ageRadios = Array.from(document.querySelectorAll('input[name="age"]'));
+        ageRadios.forEach(r => { r.checked = savedAge !== "" && r.value === savedAge; });
+        // 「80代以上」など今の選択肢に無い年代は、丸を選ばずに今の登録を知らせる（選び直さなければそのまま残る）
+        if (savedAge && !ageRadios.some(r => r.checked)) {
+            $('saved-age-note').textContent = `今のご登録は「${savedAge}」です。選び直さなければ、このまま残ります。`;
+            $('saved-age-note').hidden = false;
+        }
+        $('isProxy').checked = !!u.isProxy;
+        if (u.isProxy && u.proxyHan) {
+            $('proxyHan').value = u.proxyHan;
+            proxyHanEdited = true; // 保存済みの担当班を自宅の班で上書きしない
+        }
+        refreshProxy();
+
+        $('view-mode').hidden = false;
     }
 
+    /** 確認画面から修正画面へ */
     function switchToEditMode() {
-        document.getElementById('main-title').innerText = "登録情報の修正";
-        document.getElementById('view-mode').style.display = 'none';
-        document.getElementById('input-form').style.display = 'block';
-        document.getElementById('welcome-msg').innerText = "修正内容を入力して、登録ボタンを押してください。";
+        $('main-title').innerText = "登録情報の修正";
+        $('welcome-msg').innerHTML = "修正する所を書き直して、いちばん下のボタンを押してください。<br>全部で4つです。<b>3</b> と <b>4</b> は答えなくてもかまいません。";
+        $('view-mode').hidden = true;
+        $('input-form').hidden = false;
+        window.scrollTo(0, 0);
     }
 
+    // ==========================================
+    // 送信
+    // ==========================================
+
+    /**
+     * ボタンの状態を切り替える（送信中も押せない見た目にはしない。文字だけ変える）
+     * @param {boolean} on
+     */
+    function setSending(on) {
+        sending = on;
+        const btn = $('submitBtn');
+        btn.textContent = on ? '送信中…' : 'この内容で登録する';
+        if (on) btn.setAttribute('aria-busy', 'true'); else btn.removeAttribute('aria-busy');
+    }
+
+    /**
+     * 登録ボタン
+     * 1. 空欄・範囲外と、姓のかな（1回目だけ）を確かめる
+     * 2. GAS に送る。班-戸番が名簿に無ければ注意を出す（もう一度押せばそのまま送る）
+     * 3. 保存できたときだけ、トークにメッセージを送って閉じる
+     */
     async function submitForm() {
-        const btn = document.getElementById('submitBtn');
-        const lastName = document.getElementById('lastName').value.trim();
-        const firstName = document.getElementById('firstName').value.trim();
-        const hanStr = document.getElementById('hanBan').value;
-        const kobanStr = document.getElementById('koban').value;
-        const selectedRoles = Array.from(document.querySelectorAll('input[name="role"]:checked')).map(el => el.value);
-        const roles = selectedRoles.length > 0 ? selectedRoles.join('/') : "一般";
+        if (sending) return; // 2回目の押しは受け付けない
 
-        if (!lastName || !firstName || !hanStr || !kobanStr) { alert("必須項目をすべて入力してください。"); return; }
+        const errs = validate();
+        // 姓のかなの確認は、ほかの注意（空欄など）と一緒に出す。1回出したら次は止めない
+        if (isKanaOnlyName($('lastName').value) && !nameWarned) {
+            nameWarned = true;
+            errs.unshift({ fg: 'fg-name', input: 'lastName', text: KANA_WARNING });
+        }
+        if (errs.length) { showErrors(errs); return; }
+        clearAll();
 
-        btn.disabled = true;
-        btn.innerText = "送信中...";
+        const lastName = $('lastName').value.trim();
+        const firstName = $('firstName').value.trim();
+        const han = parseRange($('hanBan').value, HAN_MAX);
+        const koban = parseRange($('koban').value, KOBAN_MAX);
+        const proxyHan = isProxy() ? parseRange($('proxyHan').value, HAN_MAX) : "";
+        const age = selectedAge();
 
+        setSending(true);
+        let result;
         try {
-            const profile = await liff.getProfile();
-            await fetch(GAS_URL, {
+            const response = await fetch(GAS_URL, {
                 method: "POST",
-                mode: "no-cors",
                 body: JSON.stringify({
+                    formVersion: FORM_VERSION,
+                    houseConfirmed: houseWarned, // 注意を見たうえで、もう一度押した
                     userId: profile.userId,
+                    displayName: profile.displayName,
                     lastName: lastName,
                     firstName: firstName,
-                    hanban: hanStr,
-                    koban: kobanStr,
-                    ageGeneration: document.getElementById('ageGeneration').value,
-                    roles: roles,
-                    displayName: profile.displayName,
-                    deviceInfo: getDeviceInfo()
+                    hanban: han,
+                    koban: koban,
+                    ageGeneration: age,
+                    isProxy: isProxy(),
+                    proxyHan: proxyHan
                 })
             });
-
-            if (liff.isInClient()) {
-                const actionLabel = isExistingUser ? "【情報更新】" : "【新規登録】";
-                const ageGeneration = document.getElementById('ageGeneration').value || "未選択";
-                const logMessage = `以下の内容で${actionLabel}します。\n\n氏名：${lastName} ${firstName}\n班-戸番：${hanStr}-${kobanStr}\n年代：${ageGeneration}\n役職：${roles}`;
-                await liff.sendMessages([{ type: 'text', text: logMessage }]);
-            }
-            if (liff.isInClient()) {
-                liff.closeWindow();
-            } else {
-                document.getElementById('main-title').style.display = 'none';
-                document.getElementById('welcome-msg').style.display = 'none';
-                document.getElementById('input-form').style.display = 'none';
-                document.getElementById('view-mode').style.display = 'none';
-                document.getElementById('success-message').style.display = 'block';
-            }
+            result = await response.json();
         } catch (e) {
-            alert("エラーが発生しました。");
-            btn.disabled = false;
+            result = { status: 'error' };
+        }
+
+        if (result.status === 'house_not_found') {
+            setSending(false);
+            houseWarned = true;
+            showErrors([{
+                fg: 'fg-hk',
+                input: 'hanBan',
+                text: `${han}班-${koban}番 は名簿に見つかりません。もう一度ご確認ください。\nまちがいなければ、もう一度［この内容で登録する］を押してください。\n班や戸番がわからないときは、この画面を閉じて、トーク画面からメッセージでお問い合わせください。`
+            }]);
+            return;
+        }
+        if (result.status !== 'success') {
+            setSending(false);
+            showSendError(SEND_FAILED);
+            return;
+        }
+
+        // 保存できた。トークに内容を送る（この文を受けて、公式アカウントが「完了しました」と返信する）
+        if (liff.isInClient()) {
+            const actionLabel = isExistingUser ? "【情報更新】" : "【新規登録】";
+            const lines = [
+                `以下の内容で${actionLabel}します。`,
+                '',
+                `氏名：${lastName} ${firstName}`,
+                `班-戸番：${han}-${koban}`,
+                `年代：${age || "未選択"}`
+            ];
+            if (isProxy()) lines.push(`班長の代理：${proxyHan}班`);
+            try {
+                await liff.sendMessages([{ type: 'text', text: lines.join('\n') }]);
+            } catch (e) {
+                console.error(e); // 保存は済んでいるので、閉じる処理は続ける
+            }
+            liff.closeWindow();
+        } else {
+            $('main-title').hidden = true;
+            $('welcome-msg').hidden = true;
+            $('input-form').hidden = true;
+            $('view-mode').hidden = true;
+            $('success-message').hidden = false;
         }
     }
 </script>
