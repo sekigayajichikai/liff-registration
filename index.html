@@ -117,6 +117,7 @@
             <div class="info-row"><span class="info-label">班-戸番</span><span class="info-value" id="view-address"></span></div>
             <div class="info-row"><span class="info-label">年代</span><span class="info-value" id="view-age"></span></div>
             <div class="info-row" id="view-dairi-row" hidden><span class="info-label">班長の代理</span><span class="info-value" id="view-dairi"></span></div>
+            <div class="info-row" id="view-bus-row" hidden><span class="info-label">いつも使うバス停</span><span class="info-value" id="view-bus"></span></div>
             <button type="button" class="btn btn-sub" onclick="switchToEditMode()">情報を修正・変更する</button>
         </div>
 
@@ -176,6 +177,18 @@
                     <input type="text" id="proxyHan" inputmode="numeric" pattern="[0-9]*" spellcheck="false" autocomplete="off">
                 </div>
             </div>
+
+            <fieldset class="q" id="fg-bus">
+                <legend class="lbl"><span class="qno" aria-hidden="true">5</span>いつも使うバス停（任意）</legend>
+                <p class="guide why">登録しておくと、メニューの「バス時刻表」を押したとき、そのバス停の時刻表がすぐに出ます。あとからトークで「マイバス設定」と送れば変えられます。</p>
+                <p class="guide small" id="saved-bus-note" hidden style="margin: 0 0 10px;"></p>
+                <!-- 値は「方向|停留所名」。停留所名は名簿GAS（BusTimetable.js）の時刻表と同じ文字にする -->
+                <label class="rad"><input type="radio" name="bus" value="往路|野村住宅センター">野村住宅センター から 金沢文庫駅へ</label>
+                <label class="rad"><input type="radio" name="bus" value="往路|西小学校前">西小学校前 から 金沢文庫駅へ</label>
+                <label class="rad"><input type="radio" name="bus" value="往路|中学校前">中学校前 から 金沢文庫駅へ</label>
+                <label class="rad"><input type="radio" name="bus" value="復路|金沢文庫駅西口">金沢文庫駅西口 から 帰り</label>
+                <label class="rad"><input type="radio" name="bus" value="" checked>登録しない（今のまま）</label>
+            </fieldset>
 
             <div id="msg"></div>
             <button type="button" class="btn" id="submitBtn" onclick="submitForm()">この内容で登録する</button>
@@ -255,6 +268,21 @@
 
     /** 班長の代理にチェックがあるか */
     function isProxy() { return $('isProxy').checked; }
+
+    /** 選んだ「いつも使うバス停」の値（"往路|野村住宅センター" の形。登録しないなら ""） */
+    function selectedBus() {
+        const checked = document.querySelector('input[name="bus"]:checked');
+        return checked ? checked.value : "";
+    }
+
+    /**
+     * バス停の表示用の文（例: 野村住宅センター から 金沢文庫駅へ）
+     * @param {string} direction - "往路" or "復路"
+     * @param {string} stopName
+     */
+    function busLabel(direction, stopName) {
+        return direction === "復路" ? `${stopName} から 帰り` : `${stopName} から 金沢文庫駅へ`;
+    }
 
     /**
      * 送る年代。丸を選んでいればその値、選んでいなければ登録済みの値（新規なら空）
@@ -413,7 +441,7 @@
     /** 初めての人: 入力フォームを出す */
     function showNewForm() {
         $('main-title').innerText = "初回利用登録";
-        $('welcome-msg').innerHTML = "全部で4つです。<b>3</b> と <b>4</b> は答えなくてもかまいません。";
+        $('welcome-msg').innerHTML = "全部で5つです。<b>3</b>・<b>4</b>・<b>5</b> は答えなくてもかまいません。";
         $('input-form').hidden = false;
     }
 
@@ -451,13 +479,28 @@
         }
         refreshProxy();
 
+        // いつも使うバス停（Supabase のバス設定の先頭）。選択肢に無い行き方なら、丸を選ばずに今の登録を知らせる
+        if (u.busStop && u.busStop.stopName) {
+            const label = busLabel(u.busStop.direction, u.busStop.stopName);
+            $('view-bus').innerText = label;
+            $('view-bus-row').hidden = false;
+            const busRadios = Array.from(document.querySelectorAll('input[name="bus"]'));
+            const hit = busRadios.find(r => r.value === `${u.busStop.direction}|${u.busStop.stopName}`);
+            if (hit) {
+                hit.checked = true;
+            } else {
+                $('saved-bus-note').textContent = `今のご登録は「${label}」です。選び直さなければ、このまま残ります。`;
+                $('saved-bus-note').hidden = false;
+            }
+        }
+
         $('view-mode').hidden = false;
     }
 
     /** 確認画面から修正画面へ */
     function switchToEditMode() {
         $('main-title').innerText = "登録情報の修正";
-        $('welcome-msg').innerHTML = "修正する所を書き直して、いちばん下のボタンを押してください。<br>全部で4つです。<b>3</b> と <b>4</b> は答えなくてもかまいません。";
+        $('welcome-msg').innerHTML = "修正する所を書き直して、いちばん下のボタンを押してください。<br>全部で5つです。<b>3</b>・<b>4</b>・<b>5</b> は答えなくてもかまいません。";
         $('view-mode').hidden = true;
         $('input-form').hidden = false;
         window.scrollTo(0, 0);
@@ -502,6 +545,7 @@
         const koban = parseRange($('koban').value, KOBAN_MAX);
         const proxyHan = isProxy() ? parseRange($('proxyHan').value, HAN_MAX) : "";
         const age = selectedAge();
+        const busStop = selectedBus();
 
         setSending(true);
         let result;
@@ -519,7 +563,8 @@
                     koban: koban,
                     ageGeneration: age,
                     isProxy: isProxy(),
-                    proxyHan: proxyHan
+                    proxyHan: proxyHan,
+                    busStop: busStop
                 })
             });
             result = await response.json();
@@ -554,6 +599,7 @@
                 `年代：${age || "未選択"}`
             ];
             if (isProxy()) lines.push(`班長の代理：${proxyHan}班`);
+            if (busStop) lines.push(`いつも使うバス停：${busLabel(busStop.split('|')[0], busStop.split('|')[1])}`);
             try {
                 await liff.sendMessages([{ type: 'text', text: lines.join('\n') }]);
             } catch (e) {
