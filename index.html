@@ -116,7 +116,7 @@
             <div class="info-row"><span class="info-label">氏名</span><span class="info-value" id="view-name"></span></div>
             <div class="info-row"><span class="info-label">班-戸番</span><span class="info-value" id="view-address"></span></div>
             <div class="info-row"><span class="info-label">年代</span><span class="info-value" id="view-age"></span></div>
-            <div class="info-row" id="view-dairi-row" hidden><span class="info-label">班長の代理</span><span class="info-value" id="view-dairi"></span></div>
+            <div class="info-row" id="view-role-row" hidden><span class="info-label">役職</span><span class="info-value" id="view-role"></span></div>
             <div class="info-row" id="view-bus-row" hidden><span class="info-label">近いバス停</span><span class="info-value" id="view-bus"></span></div>
             <button type="button" class="btn btn-sub" onclick="switchToEditMode()">情報を修正・変更する</button>
         </div>
@@ -166,17 +166,21 @@
                 <label class="rad"><input type="radio" name="age" value="">答えない</label>
             </fieldset>
 
-            <div class="q" id="fg-dairi">
-                <span class="lbl"><span class="qno" aria-hidden="true">4</span>班長の代理（任意）</span>
-                <p class="guide small" style="margin: 0 0 10px;">班長さんがLINEを使っていないときに、代わりに受け取る方だけチェックしてください。</p>
+            <fieldset class="q" id="fg-dairi">
+                <legend class="lbl"><span class="qno" aria-hidden="true">4</span>役職（任意）</legend>
+                <p class="guide why">地区長・班長の方は選んでください。班長さんがLINEを使っていないときに、代わりに受け取る方は「班長の代理」を選んでください。</p>
                 <div id="dairi-msg"></div>
-                <label class="op"><input type="checkbox" id="isProxy">班長の代わりにLINEで受け取る</label>
+                <!-- 値は名簿の「役職（フォーム）」列にそのまま入る。代理だけ「班長（代理）」（名簿の 26後-班長（代理）と同じ書き方） -->
+                <label class="rad"><input type="radio" name="role" value="地区長">地区長</label>
+                <label class="rad"><input type="radio" name="role" value="班長">班長</label>
+                <label class="rad"><input type="radio" name="role" value="班長（代理）">班長の代理</label>
+                <label class="rad"><input type="radio" name="role" value="なし" checked>なし</label>
                 <div class="reveal" id="proxy-han-box" hidden>
                     <label for="proxyHan">何班の代わりですか</label>
                     <p class="guide small" style="margin: 0 0 8px;">ご自宅の班を入れています。ちがう班の代わりなら、書き直してください。</p>
                     <input type="text" id="proxyHan" inputmode="numeric" pattern="[0-9]*" spellcheck="false" autocomplete="off">
                 </div>
-            </div>
+            </fieldset>
 
             <fieldset class="q" id="fg-bus">
                 <legend class="lbl"><span class="qno" aria-hidden="true">5</span>お住まいに近いバス停（任意）</legend>
@@ -266,7 +270,17 @@
     }
 
     /** 班長の代理にチェックがあるか */
-    function isProxy() { return $('isProxy').checked; }
+    /** 選んだ役職（"地区長" / "班長" / "班長（代理）" / "なし"） */
+    function selectedRole() {
+        const checked = document.querySelector('input[name="role"]:checked');
+        return checked ? checked.value : "なし";
+    }
+    /** 役職の表示用の文（代理は「班長の代理（12班）」） */
+    function roleLabel(role, proxyHan) {
+        if (role === "班長（代理）") return proxyHan ? `班長の代理（${proxyHan}班）` : "班長の代理";
+        return role || "なし";
+    }
+    function isProxy() { return selectedRole() === "班長（代理）"; }
 
     /** 選んだ「お住まいに近いバス停」の停留所名（登録しないなら ""） */
     function selectedBus() {
@@ -370,7 +384,7 @@
     }
 
     // ==========================================
-    // 代理: チェックすると「何班の代わりですか」を出し、自宅の班を最初から入れておく
+    // 代理: 役職で「班長の代理」を選ぶと「何班の代わりですか」を出し、自宅の班を最初から入れておく
     // ==========================================
 
     /** 代理の欄の表示を更新する。本人が書き直していなければ、自宅の班を入れる */
@@ -382,7 +396,7 @@
     }
 
     // 書き直したら、その項目の注意を消す
-    $('isProxy').addEventListener('change', () => { refreshProxy(); clearGroup('fg-dairi'); });
+    document.querySelectorAll('input[name="role"]').forEach(r => r.addEventListener('change', () => { refreshProxy(); clearGroup('fg-dairi'); }));
     $('proxyHan').addEventListener('input', () => { proxyHanEdited = true; clearGroup('fg-dairi'); });
     $('lastName').addEventListener('input', () => { nameWarned = false; clearGroup('fg-name'); });
     $('firstName').addEventListener('input', () => clearGroup('fg-name'));
@@ -437,7 +451,7 @@
 
     /**
      * 登録済みの人: 確認画面を出し、フォームの裏側にも今の値を入れておく
-     * @param {{lastName: string, firstName: string, han: number, koban: number, age: string, isProxy: boolean, proxyHan: (string|number)}} u
+     * @param {{lastName: string, firstName: string, han: number, koban: number, age: string, role: string, isProxy: boolean, proxyHan: (string|number), busStop: string}} u
      */
     function showViewMode(u) {
         $('main-title').innerText = "マイページ";
@@ -445,9 +459,11 @@
         $('view-name').innerText = `${u.lastName} ${u.firstName}`;
         $('view-address').innerText = `${u.han}班-${u.koban}番`;
         $('view-age').innerText = u.age || "未選択";
-        if (u.isProxy) {
-            $('view-dairi').innerText = u.proxyHan ? `${u.proxyHan}班の代わり` : "はい";
-            $('view-dairi-row').hidden = false;
+        // 役職（名簿の「役職（フォーム）」）。古い登録で空なら、代理チェックだけで判断
+        const savedRole = u.role || (u.isProxy ? "班長（代理）" : "");
+        if (savedRole && savedRole !== "なし") {
+            $('view-role').innerText = roleLabel(savedRole, u.proxyHan);
+            $('view-role-row').hidden = false;
         }
 
         $('lastName').value = u.lastName || '';
@@ -462,8 +478,8 @@
             $('saved-age-note').textContent = `今のご登録は「${savedAge}」です。選び直さなければ、このまま残ります。`;
             $('saved-age-note').hidden = false;
         }
-        $('isProxy').checked = !!u.isProxy;
-        if (u.isProxy && u.proxyHan) {
+        document.querySelectorAll('input[name="role"]').forEach(r => { r.checked = r.value === (savedRole || "なし"); });
+        if (isProxy() && u.proxyHan) {
             $('proxyHan').value = u.proxyHan;
             proxyHanEdited = true; // 保存済みの担当班を自宅の班で上書きしない
         }
@@ -551,6 +567,7 @@
                     hanban: han,
                     koban: koban,
                     ageGeneration: age,
+                    role: selectedRole(),      // 名簿の「役職（フォーム）」に入る
                     isProxy: isProxy(),
                     proxyHan: proxyHan,
                     busStop: busStop
@@ -587,7 +604,7 @@
                 `班-戸番：${han}-${koban}`,
                 `年代：${age || "未選択"}`
             ];
-            if (isProxy()) lines.push(`班長の代理：${proxyHan}班`);
+            lines.push(`役職：${roleLabel(selectedRole(), proxyHan)}`); // チャット画面で役職が分かるように、「なし」でも入れる
             if (busStop) lines.push(`お住まいに近いバス停：${busStop}`);
             try {
                 await liff.sendMessages([{ type: 'text', text: lines.join('\n') }]);
